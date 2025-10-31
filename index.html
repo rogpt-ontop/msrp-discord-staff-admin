@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSRP Staff Dashboard</title>
+<style>
+:root {
+    --main-blue: #1a3c6e;
+    --accent-blue: #2c5ea8;
+    --light-bg: #f0f6ff;
+}
+body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background-color: var(--light-bg);
+    color: var(--main-blue);
+    margin: 0;
+    padding: 0;
+}
+header {
+    background-color: var(--main-blue);
+    color: white;
+    padding: 1rem;
+    text-align: center;
+    font-size: 1.3rem;
+}
+.container {
+    max-width: 900px;
+    margin: 2rem auto;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+}
+input, textarea, button {
+    font-size: 1rem;
+    padding: 0.6rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    width: 100%;
+    margin-bottom: 1rem;
+}
+button {
+    background-color: var(--accent-blue);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+}
+button:hover {
+    background-color: var(--main-blue);
+}
+.staff-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.staff-card {
+    background-color: #f8fbff;
+    border: 1px solid #cfdaf0;
+    border-radius: 8px;
+    padding: 0.8rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+}
+.staff-card:hover {
+    background-color: #eaf2ff;
+}
+.staff-name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--main-blue);
+    cursor: pointer;
+}
+.remove-btn {
+    background-color: #e74c3c;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+.remove-btn:hover {
+    background-color: #c0392b;
+}
+.stats-field {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+.stats-field input {
+    width: 80px;
+    text-align: center;
+}
+.add-field {
+    margin-top: 1rem;
+    background-color: #3498db;
+}
+.back-button {
+    margin-top: 1rem;
+    background-color: #95a5a6;
+}
+@media (max-width: 600px) {
+    header { font-size: 1.1rem; }
+    .container { padding: 1rem; margin: 1rem; }
+    .staff-card { flex-direction: column; align-items: flex-start; }
+    .remove-btn { width: 100%; margin-top: 0.4rem; }
+    button { padding: 0.8rem; font-size: 1rem; }
+    textarea { font-size: 0.95rem; }
+}
+</style>
+</head>
+<body>
+
+<header>Massuchets State Roleplay — Staff Dashboard</header>
+
+<div class="container" id="login-page">
+    <h2>Enter Admin Password:</h2>
+    <input type="password" id="password-input" placeholder="Enter Password">
+    <button onclick="checkPassword()">Login</button>
+    <p id="login-error" style="color:red; display:none;">Incorrect password.</p>
+</div>
+
+<div class="container hidden" id="staff-list-page">
+    <h2>Staff Members</h2>
+    <div id="staff-list" class="staff-list"></div>
+    <input type="text" id="new-staff-name" placeholder="Add new staff name...">
+    <button onclick="addStaff()">Add Staff</button>
+</div>
+
+<div class="container hidden" id="staff-info-page">
+    <h2 id="staff-title"></h2>
+    <h3>Moderation Statistics</h3>
+    <div id="stats-section"></div>
+    <button class="add-field" onclick="addStatField()">+ Add Field</button>
+
+    <h3>Feedback / Notes (Private)</h3>
+    <textarea id="feedback" rows="4" placeholder="Enter feedback or notes..."></textarea>
+
+    <h3>Behavior Notes</h3>
+    <textarea id="behavior" rows="4" placeholder="Enter behavior notes..."></textarea>
+
+    <button onclick="saveStaffInfo()">Save Changes</button>
+    <button class="back-button" onclick="backToStaffList()">Back</button>
+</div>
+
+<script>
+const PASSWORD = "1234msrpadmin";
+const loginPage = document.getElementById('login-page');
+const staffListPage = document.getElementById('staff-list-page');
+const staffInfoPage = document.getElementById('staff-info-page');
+const staffListDiv = document.getElementById('staff-list');
+const staffTitle = document.getElementById('staff-title');
+const statsSection = document.getElementById('stats-section');
+const feedbackInput = document.getElementById('feedback');
+const behaviorInput = document.getElementById('behavior');
+
+let staffData = {};
+let currentStaff = null;
+
+async function fetchStaff() {
+    const res = await fetch('/api/staff');
+    staffData = await res.json();
+    renderStaffList();
+}
+
+function checkPassword() {
+    const input = document.getElementById('password-input').value;
+    if (input === PASSWORD) {
+        loginPage.classList.add('hidden');
+        staffListPage.classList.remove('hidden');
+        fetchStaff();
+    } else {
+        document.getElementById('login-error').style.display = 'block';
+    }
+}
+
+function renderStaffList() {
+    staffListDiv.innerHTML = '';
+    Object.keys(staffData).forEach(name => {
+        const card = document.createElement('div');
+        card.className = 'staff-card';
+
+        const span = document.createElement('span');
+        span.className = 'staff-name';
+        span.textContent = name;
+        span.onclick = () => openStaffInfo(name);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.textContent = "Remove";
+        removeBtn.onclick = async (e) => {
+            e.stopPropagation();
+            await fetch(`/api/staff/${name}`, { method: 'DELETE' });
+            fetchStaff();
+        };
+
+        card.appendChild(span);
+        card.appendChild(removeBtn);
+        staffListDiv.appendChild(card);
+    });
+}
+
+async function addStaff() {
+    const nameInput = document.getElementById('new-staff-name');
+    const name = nameInput.value.trim();
+    if (name && !staffData[name]) {
+        const info = { stats: {}, feedback: "", behavior: "" };
+        await fetch('/api/staff', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, info })
+        });
+        nameInput.value = '';
+        fetchStaff();
+    }
+}
+
+function openStaffInfo(name) {
+    currentStaff = name;
+    staffListPage.classList.add('hidden');
+    staffInfoPage.classList.remove('hidden');
+    staffTitle.textContent = `${name}'s Information`;
+    renderStats();
+    feedbackInput.value = staffData[name].feedback || "";
+    behaviorInput.value = staffData[name].behavior || "";
+}
+
+function renderStats() {
+    statsSection.innerHTML = '';
+    const stats = staffData[currentStaff].stats;
+    for (let key in stats) {
+        const div = document.createElement('div');
+        div.className = 'stats-field';
+        div.innerHTML = `<label>${key}:</label><input type="number" value="${stats[key]}" onchange="updateStat('${key}', this.value)">`;
+        statsSection.appendChild(div);
+    }
+}
+
+function updateStat(field, value) {
+    staffData[currentStaff].stats[field] = parseInt(value);
+}
+
+function addStatField() {
+    const field = prompt("Enter field name:");
+    if (field) {
+        staffData[currentStaff].stats[field] = 0;
+        renderStats();
+    }
+}
+
+async function saveStaffInfo() {
+    staffData[currentStaff].feedback = feedbackInput.value;
+    staffData[currentStaff].behavior = behaviorInput.value;
+    await fetch('/api/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name: currentStaff,
+            info: staffData[currentStaff]
+        })
+    });
+    alert("Saved successfully.");
+}
+
+function backToStaffList() {
+    staffInfoPage.classList.add('hidden');
+    staffListPage.classList.remove('hidden');
+    fetchStaff();
+}
+</script>
+
+</body>
+</html>
